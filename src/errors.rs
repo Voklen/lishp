@@ -1,4 +1,14 @@
 #[macro_export]
+macro_rules! unwrap_or_return {
+	( $e:expr ) => {
+		match $e {
+			Some(x) => x,
+			None => return,
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! throw{
     ($($message:tt)*) => {{
 		use	crate::errors::throw_error_fuction;
