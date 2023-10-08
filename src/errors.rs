@@ -1,15 +1,17 @@
+/// Print the error and stop the program, if running in debug mode it will panic
+/// but in release builds it will print `<program name>: <error>` to stderr and
+/// exit with exit code 1.
+/// The macro will also format the string within it
+/// ```
+/// match value {
+/// 	Ok(x) => x,
+/// 	Err(err) => {
+/// 		throw!("Error reading line: {err}")
+/// 	}
+/// }
+/// ```
 #[macro_export]
-macro_rules! unwrap_or_return {
-	( $e:expr ) => {
-		match $e {
-			Some(x) => x,
-			None => return,
-		}
-	};
-}
-
-#[macro_export]
-macro_rules! throw{
+macro_rules! throw {
     ($($message:tt)*) => {{
 		use	crate::errors::throw_error_fuction;
         let res = format!($($message)*);
