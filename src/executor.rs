@@ -2,12 +2,10 @@ use std::process::Command;
 
 use crate::{
 	parsing::{Expression, Func},
-	throw, unwrap_or_return,
+	throw,
 };
 
-pub fn executor(option_func: Option<Func>) {
-	let func = unwrap_or_return!(option_func);
-
+pub fn executor(func: Func) {
 	let args = get_args(func.arguments);
 	println!("{:?}", args);
 	let startup_result = Command::new(func.name).args(args).spawn();

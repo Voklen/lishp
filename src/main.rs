@@ -8,7 +8,10 @@ fn main() {
 	print_prompt();
 	let lines = io::stdin().lines();
 	for line in lines {
-		let parsed = parsing::parse(line);
+		let parsed = match parsing::parse(line) {
+			Some(res) => res,
+			None => continue,
+		};
 		executor::executor(parsed);
 		print_prompt();
 	}
