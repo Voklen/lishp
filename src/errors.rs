@@ -51,6 +51,7 @@ impl Display for LexerError {
 
 pub enum ParserError {
 	ExpectedFunctionNameGotEOF,
+	EndOfFunctionWhileStillTokens,
 }
 
 impl Display for ParserError {
@@ -58,6 +59,9 @@ impl Display for ParserError {
 		let message = match self {
 			ParserError::ExpectedFunctionNameGotEOF => {
 				"Expected a function, but instead got end of command."
+			}
+			ParserError::EndOfFunctionWhileStillTokens => {
+				"End of function but still more text after it. Hint: Do you have too many ')'?"
 			}
 		};
 		write!(f, "Parser Error: {message}")

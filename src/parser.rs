@@ -31,7 +31,11 @@ pub fn parse(tokens: Vec<Token>) -> Result<Func, ParserError> {
 		return Ok(Func::empty());
 	}
 	let mut token_iterator = tokens.into_iter();
-	parse_function(&mut token_iterator)
+	let res = parse_function(&mut token_iterator);
+	if token_iterator.next().is_some() {
+		return Err(ParserError::EndOfFunctionWhileStillTokens);
+	}
+	res
 }
 
 fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
