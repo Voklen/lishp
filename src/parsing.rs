@@ -1,72 +1,68 @@
-use crate::throw;
-use std::{io, iter::Peekable, str::Chars};
+use crate::{errors::ParserError, lexer::Token};
+use std::vec::IntoIter;
 
-pub fn parse(result_line: Result<String, io::Error>) -> Option<Func> {
-	let line = result_line.unwrap_or_else(|e| throw!("Error reading line: {e}"));
-	let mut chars = line.chars().peekable();
-	let name = next_word(&mut chars);
-
-	let mut args = vec![];
-	loop {
-		let result = get_next_expression(&mut chars);
-		match result {
-			Some(expr) => args.push(expr),
-			None => break,
-		}
-	}
-	println!("name: {} args: {:?}", name, args);
-	Some(Func {
-		name: name.to_owned(),
-		arguments: args,
-	})
-}
-
-fn next_word(chars: &mut Peekable<Chars<'_>>) -> String {
-	let reference = chars.by_ref();
-	reference.take_while(|char| !char.is_whitespace()).collect()
-}
-
-/// Returns None if end of function
-fn get_next_expression(chars: &mut Peekable<Chars<'_>>) -> Option<Expression> {
-	let first_char = chars.peek()?;
-	match first_char {
-		'(' => Some(parse_function(chars)),
-		')' => {
-			chars.next();
-			None
-		}
-		_ => Some(Expression::String(next_word(chars))),
-	}
-}
-
-fn parse_function(chars: &mut Peekable<Chars<'_>>) -> Expression {
-	chars.next();
-	let name = next_word(chars);
-	let mut args = vec![];
-
-	loop {
-		let result = get_next_expression(chars);
-		match result {
-			Some(expr) => args.push(expr),
-			None => break,
-		}
-	}
-
-	let as_func = Func {
-		name: name.to_owned(),
-		arguments: args,
-	};
-	Expression::Function(as_func)
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expression {
 	String(String),
-	Function(Func),
+	Function(Box<Func>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Func {
-	pub name: String,
+	pub name: Expression,
 	pub arguments: Vec<Expression>,
+}
+
+impl Func {
+	fn empty() -> Self {
+		return Func {
+			name: Expression::String(String::new()),
+			arguments: vec![],
+		};
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.name == Expression::String(String::new()) && self.arguments == vec![]
+	}
+}
+
+pub fn parse(tokens: Vec<Token>) -> Result<Func, ParserError> {
+	if tokens.is_empty() {
+		return Ok(Func::empty());
+	}
+	let mut token_iterator = tokens.into_iter();
+	parse_function(&mut token_iterator)
+}
+
+fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
+	let token = match tokens.next() {
+		Some(res) => res,
+		None => return Err(ParserError::ExpectedFunctionNameGotEOF),
+	};
+	let fn_name = match token {
+		Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
+		Token::FunctionEnd => return Ok(Func::empty()),
+		Token::Space => return parse_function(tokens), // Continue parsing without the space token.
+		Token::String(string) => Expression::String(string),
+	};
+	let mut args = vec![];
+
+	loop {
+		let token = match tokens.next() {
+			Some(res) => res,
+			None => break,
+		};
+		let arg = match token {
+			Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
+			Token::FunctionEnd => break,
+			Token::Space => continue,
+			Token::String(string) => Expression::String(string),
+		};
+		args.push(arg);
+	}
+
+	Ok(Func {
+		name: fn_name,
+		arguments: args,
+	})
 }
