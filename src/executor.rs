@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use crate::{
-	parsing::{Expression, Func},
+	parser::{Expression, Func},
 	throw,
 };
 

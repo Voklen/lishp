@@ -1,11 +1,11 @@
 use std::io::{self, Write};
 
-use crate::lexer::lex;
+use crate::{lexer::lex, parser::parse};
 
 mod errors;
 mod executor;
 mod lexer;
-mod parsing;
+mod parser;
 
 fn main() {
 	print_prompt();
@@ -18,8 +18,7 @@ fn main() {
 				return;
 			}
 		};
-		println!("Tokens: {:?}", tokens);
-		let parsed = match parsing::parse(tokens) {
+		let parsed = match parse(tokens) {
 			Ok(res) => res,
 			Err(e) => {
 				eprintln!("{e}");

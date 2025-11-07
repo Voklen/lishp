@@ -51,8 +51,6 @@ impl Display for LexerError {
 
 pub enum ParserError {
 	ExpectedFunctionNameGotEOF,
-	ExpectedArgumentGotEOF,
-	FunctionEndOutsideFunction,
 }
 
 impl Display for ParserError {
@@ -60,12 +58,6 @@ impl Display for ParserError {
 		let message = match self {
 			ParserError::ExpectedFunctionNameGotEOF => {
 				"Expected a function, but instead got end of command."
-			}
-			ParserError::ExpectedArgumentGotEOF => {
-				"Expected an argument, but instead got end of command."
-			}
-			ParserError::FunctionEndOutsideFunction => {
-				"Found an end of function outside a function."
 			}
 		};
 		write!(f, "Parser Error: {message}")
