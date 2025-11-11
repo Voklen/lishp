@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, io};
 
 /// Print the error and stop the program, if running in debug mode it will panic
 /// but in release builds it will print `<program name>: <error>` to stderr and
@@ -66,4 +66,44 @@ impl Display for ParserError {
 		};
 		write!(f, "Parser Error: {message}")
 	}
+}
+
+#[derive(Debug)]
+pub struct ExecutorError {
+	error_type: ExecutorErrorType,
+	binary_name: Option<String>,
+}
+
+impl ExecutorError {
+	pub fn with(mut self, binary_name: String) -> Self {
+		self.binary_name = Some(binary_name);
+		self
+	}
+}
+
+impl Display for ExecutorError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		let message = match &self.error_type {
+			ExecutorErrorType::CommandStart(e) => e,
+		};
+		match &self.binary_name {
+			Some(name) => write!(f, "{name}: {message}"),
+			None => write!(f, "{message}"),
+		}
+	}
+}
+
+impl From<io::Error> for ExecutorError {
+	fn from(value: io::Error) -> Self {
+		let error_type = ExecutorErrorType::CommandStart(value);
+		Self {
+			error_type,
+			binary_name: None,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum ExecutorErrorType {
+	CommandStart(io::Error),
 }
