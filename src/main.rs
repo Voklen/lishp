@@ -1,4 +1,13 @@
-use reedline::{DefaultPrompt, Reedline, Signal};
+use std::{
+	env,
+	fs::{self, DirEntry},
+	io::Error,
+};
+
+use reedline::{
+	default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultPrompt, Emacs, KeyCode,
+	KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
+};
 
 use crate::{executor::execute, lexer::lex, parser::parse};
 
@@ -8,7 +17,7 @@ mod lexer;
 mod parser;
 
 fn main() {
-	let mut line_editor = Reedline::create();
+	let mut line_editor = get_line_editor();
 	let prompt = DefaultPrompt::default();
 
 	loop {
@@ -40,4 +49,64 @@ fn main() {
 		};
 		execute(parsed);
 	}
+}
+
+fn get_line_editor() -> Reedline {
+	let commands = executables_in_path();
+	let completer = Box::new(DefaultCompleter::new_with_wordlen(commands, 2));
+	let completion_menu = Box::new(ColumnarMenu::default().with_name("completion_menu"));
+
+	let mut keybindings = default_emacs_keybindings();
+	keybindings.add_binding(
+		KeyModifiers::NONE,
+		KeyCode::Tab,
+		ReedlineEvent::UntilFound(vec![
+			ReedlineEvent::Menu("completion_menu".to_string()),
+			ReedlineEvent::MenuNext,
+		]),
+	);
+
+	let edit_mode = Box::new(Emacs::new(keybindings));
+
+	Reedline::create()
+		.with_completer(completer)
+		.with_menu(ReedlineMenu::EngineCompleter(completion_menu))
+		.with_edit_mode(edit_mode)
+}
+
+fn executables_in_path() -> Vec<String> {
+	let path = match env::var("PATH") {
+		Ok(res) => res,
+		Err(_) => "/bin".to_string(),
+	};
+
+	// Ignore all errors and just collect as many executables as you can for autocompletion.
+	let mut executables = vec![];
+	for p in path.split(":") {
+		let files = match fs::read_dir(p) {
+			Ok(res) => res,
+			Err(_) => continue,
+		};
+		for file_res in files {
+			if let Some(file) = executable_name_from_entry(file_res) {
+				executables.push(file);
+			}
+		}
+	}
+	executables
+}
+
+fn executable_name_from_entry(dir_entry: Result<DirEntry, Error>) -> Option<String> {
+	let file = match dir_entry {
+		Ok(res) => res,
+		Err(_) => return None,
+	};
+	let (name, metadata) = match (file.file_name().into_string(), file.metadata()) {
+		(Ok(name), Ok(metadata)) => (name, metadata),
+		_ => return None,
+	};
+	if !metadata.is_file() {
+		return None;
+	};
+	Some(name)
 }
