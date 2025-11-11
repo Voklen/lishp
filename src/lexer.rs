@@ -1,5 +1,4 @@
-use crate::{errors::LexerError, throw};
-use std::io;
+use crate::errors::LexerError;
 
 #[derive(Debug)]
 pub enum Token {
@@ -9,8 +8,7 @@ pub enum Token {
 	String(String),
 }
 
-pub fn lex(result_line: Result<String, io::Error>) -> Result<Vec<Token>, LexerError> {
-	let line = result_line.unwrap_or_else(|e| throw!("Error reading line: {e}"));
+pub fn lex(line: String) -> Result<Vec<Token>, LexerError> {
 	let mut chars = line.chars();
 
 	let mut tokens = vec![];

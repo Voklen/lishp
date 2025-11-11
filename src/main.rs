@@ -1,6 +1,6 @@
-use std::io::{self, Write};
+use reedline::{DefaultPrompt, Reedline, Signal};
 
-use crate::{lexer::lex, parser::parse};
+use crate::{executor::execute, lexer::lex, parser::parse};
 
 mod errors;
 mod executor;
@@ -8,32 +8,36 @@ mod lexer;
 mod parser;
 
 fn main() {
-	print_prompt();
-	let lines = io::stdin().lines();
-	for line in lines {
+	let mut line_editor = Reedline::create();
+	let prompt = DefaultPrompt::default();
+
+	loop {
+		let line = match line_editor.read_line(&prompt) {
+			Ok(Signal::Success(line)) => line,
+			Ok(Signal::CtrlC) | Ok(Signal::CtrlD) => {
+				println!("Exiting, have a nice day :)");
+				break;
+			}
+			Err(e) => {
+				eprintln!("Error reading line: {e}");
+				continue;
+			}
+		};
+
 		let tokens = match lex(line) {
 			Ok(res) => res,
 			Err(e) => {
 				eprintln!("{e}");
-				return;
+				continue;
 			}
 		};
 		let parsed = match parse(tokens) {
 			Ok(res) => res,
 			Err(e) => {
 				eprintln!("{e}");
-				return;
+				continue;
 			}
 		};
-		executor::execute(parsed);
-		print_prompt();
-	}
-}
-
-fn print_prompt() {
-	print!("> ");
-	match io::stdout().flush() {
-		Ok(()) => {}
-		Err(e) => throw!("Error flushing stdout: {e}"),
+		execute(parsed);
 	}
 }
