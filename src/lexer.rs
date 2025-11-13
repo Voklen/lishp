@@ -22,47 +22,73 @@ pub fn lex(line: String) -> Result<Vec<Token>, LexerError> {
 		match char {
 			'(' => tokens.push(Token::FunctionStart),
 			')' => tokens.push(Token::FunctionEnd),
-			' ' => handle_space(&mut tokens, &mut chars)?,
+			'"' => {
+				let quoted_string = handle_quoted_string(&mut chars)?;
+				tokens.push(Token::String(quoted_string));
+			}
+			' ' => continue,
 			'\\' => {
 				let next_char = match chars.next() {
 					Some(res) => res,
 					None => return Err(LexerError::TrailingBackslash),
 				};
-				push_to_string(&mut tokens, next_char);
+				let mut arg = handle_argument(&mut chars, next_char)?;
+				tokens.append(&mut arg);
 			}
-			char => push_to_string(&mut tokens, char),
+			char => {
+				let mut arg = handle_argument(&mut chars, char)?;
+				tokens.append(&mut arg);
+			}
 		};
 	}
 	Ok(tokens)
 }
 
-fn push_to_string(tokens: &mut Vec<Token>, char: char) {
-	match tokens.last_mut() {
-		Some(Token::String(string)) => string.push(char),
-		_ => tokens.push(Token::String(char.to_string())),
+fn handle_argument(chars: &mut Chars<'_>, char: char) -> Result<Vec<Token>, LexerError> {
+	let mut arg = char.to_string();
+	loop {
+		let next_char = match chars.next() {
+			Some(res) => res,
+			// Just exit normally and let the outer function exit cleanly.
+			None => break,
+		};
+		match next_char {
+			'(' => return Err(LexerError::OpenParethesisWithinArgument),
+			')' => return Ok(vec![Token::String(arg), Token::FunctionEnd]),
+			'"' => return Err(LexerError::QuoteWithinArgument),
+			'\\' => {
+				let next_char = match chars.next() {
+					Some(res) => res,
+					None => return Err(LexerError::TrailingBackslash),
+				};
+				arg.push(next_char);
+			}
+			' ' => break,
+			c => arg.push(c),
+		};
 	}
+	Ok(vec![Token::String(arg)])
 }
 
-/// Handles the space and handles the next char except adding it to a new
-/// string token instead of pushing.
-fn handle_space(tokens: &mut Vec<Token>, chars: &mut Chars<'_>) -> Result<(), LexerError> {
-	let next_char = match chars.next() {
-		Some(res) => res,
-		// Just return normally and let the next iteration exit cleanly.
-		None => return Ok(()),
-	};
-	match next_char {
-		'(' => tokens.push(Token::FunctionStart),
-		')' => tokens.push(Token::FunctionEnd),
-		'\\' => {
-			let next_char = match chars.next() {
-				Some(res) => res,
-				None => return Err(LexerError::TrailingBackslash),
-			};
-			tokens.push(Token::String(next_char.to_string()));
-		}
-		' ' => return handle_space(tokens, chars),
-		c => tokens.push(Token::String(c.to_string())),
-	};
-	Ok(())
+/// Handles a string that starts with a quote.
+fn handle_quoted_string(chars: &mut Chars<'_>) -> Result<String, LexerError> {
+	let mut string = String::new();
+	loop {
+		let next_char = match chars.next() {
+			Some(res) => res,
+			None => return Err(LexerError::UnclosedQuote),
+		};
+		match next_char {
+			'\\' => {
+				let next_char = match chars.next() {
+					Some(res) => res,
+					None => return Err(LexerError::TrailingBackslash),
+				};
+				string.push(next_char);
+			}
+			'"' => break,
+			c => string.push(c),
+		};
+	}
+	Ok(string)
 }

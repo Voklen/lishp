@@ -38,13 +38,19 @@ fn exit_production(error_message: String) -> ! {
 #[derive(Debug)]
 pub enum LexerError {
 	TrailingBackslash,
+	UnclosedQuote,
+	QuoteWithinArgument,
+	OpenParethesisWithinArgument,
 }
 
 impl Display for LexerError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let message = match self {
-			LexerError::TrailingBackslash => "Single backslash at the end of the command.",
-		};
+    LexerError::TrailingBackslash => "Single backslash at the end of the command.",
+    LexerError::UnclosedQuote => "Start of quoted string without end quote.",
+    LexerError::QuoteWithinArgument => "Quote found within argument. Either replace it with \\\"  or add a space before it if this is meant as a seperate argument.",
+    LexerError::OpenParethesisWithinArgument => "Open parenthesis '(' found within argument. Either replace it with \\(  or add a space before it if this is meant to be the start of a subcommand.",
+};
 		write!(f, "Lexer Error: {message}")
 	}
 }
