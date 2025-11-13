@@ -3,7 +3,6 @@ use std::process::{Child, Command};
 use crate::{
 	errors::ExecutorError,
 	parser::{Expression, Func},
-	throw,
 };
 
 pub fn execute(func: Func) {
@@ -18,7 +17,7 @@ pub fn execute(func: Func) {
 		}
 	};
 	let exit_code = child.wait();
-	exit_code.unwrap_or_else(|e| throw!("Exited with code: {e}"));
+	exit_code.expect("Error, command was not running");
 }
 
 fn spawn_command(func: Func) -> Result<Child, ExecutorError> {

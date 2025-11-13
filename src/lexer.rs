@@ -2,7 +2,7 @@ use std::str::Chars;
 
 use crate::errors::LexerError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Token {
 	FunctionStart,
 	FunctionEnd,

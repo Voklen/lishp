@@ -9,12 +9,7 @@ use reedline::{
 	KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
 };
 
-use crate::{executor::execute, lexer::lex, parser::parse};
-
-mod errors;
-mod executor;
-mod lexer;
-mod parser;
+use lishp::{executor::execute, lexer::lex, parser::parse};
 
 fn main() {
 	let mut line_editor = get_line_editor();
