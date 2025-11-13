@@ -9,6 +9,23 @@ pub enum Token {
 	String(String),
 }
 
+/// Lex a string of lishp into a vector of tokens.
+///
+/// ```
+/// use lishp::lexer::{lex, Token};
+///
+/// let lexed = lex("ls (echo src)".to_string()).unwrap();
+/// assert_eq!(
+/// 	lexed,
+/// 	vec![
+/// 		Token::String("ls".to_string()),
+/// 		Token::FunctionStart,
+/// 		Token::String("echo".to_string()),
+/// 		Token::String("src".to_string()),
+/// 		Token::FunctionEnd,
+/// 	]
+/// );
+/// ```
 pub fn lex(line: String) -> Result<Vec<Token>, LexerError> {
 	let mut chars = line.chars();
 
