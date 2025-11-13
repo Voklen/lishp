@@ -46,7 +46,6 @@ fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
 	let fn_name = match token {
 		Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
 		Token::FunctionEnd => return Ok(Func::empty()),
-		Token::Space => return parse_function(tokens), // Continue parsing without the space token.
 		Token::String(string) => Expression::String(string),
 	};
 	let mut args = vec![];
@@ -59,7 +58,6 @@ fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
 		let arg = match token {
 			Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
 			Token::FunctionEnd => break,
-			Token::Space => continue,
 			Token::String(string) => Expression::String(string),
 		};
 		args.push(arg);
