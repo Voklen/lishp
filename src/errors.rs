@@ -47,6 +47,13 @@ pub struct ExecutorError {
 }
 
 impl ExecutorError {
+	pub fn from_type(error_type: ExecutorErrorType) -> Self {
+		Self {
+			error_type,
+			binary_name: None,
+		}
+	}
+
 	pub fn with(mut self, binary_name: String) -> Self {
 		self.binary_name = Some(binary_name);
 		self
@@ -56,7 +63,11 @@ impl ExecutorError {
 impl Display for ExecutorError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let message = match &self.error_type {
-			ExecutorErrorType::CommandStart(e) => e,
+			ExecutorErrorType::CommandStart(e) => e.to_string(),
+			ExecutorErrorType::IncorrectNumberOfArgsToBuiltinFunction => {
+				"Incorrect number of arguments given.".to_string()
+			}
+			ExecutorErrorType::BuiltinExecutionError(reason) => reason.to_string(),
 		};
 		match &self.binary_name {
 			Some(name) => write!(f, "{name}: {message}"),
@@ -78,4 +89,6 @@ impl From<io::Error> for ExecutorError {
 #[derive(Debug)]
 pub enum ExecutorErrorType {
 	CommandStart(io::Error),
+	IncorrectNumberOfArgsToBuiltinFunction,
+	BuiltinExecutionError(String),
 }
