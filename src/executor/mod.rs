@@ -1,9 +1,12 @@
 use std::process::{self, Command};
 
 use crate::{
-	errors::{ExecutorError, ExecutorErrorType},
+	errors::ExecutorError,
+	executor::builtin_functions::{if_function::evaluate_if, pipe::evaluate_pipe},
 	parser::{Expression, Func},
 };
+
+mod builtin_functions;
 
 enum CommandOrString {
 	Command(process::Command),
@@ -78,6 +81,7 @@ fn evaluate_func(func: Box<Func>) -> Result<CommandOrString, ExecutorError> {
 	let result_string = match name.as_str() {
 		"" => CommandOrString::String("".to_string()),
 		"if" => evaluate_if(func.arguments)?,
+		"pipe" | "|" => evaluate_pipe(func.arguments)?,
 		command => CommandOrString::Command(evalute_command(command, func.arguments)?),
 	};
 	Ok(result_string)
@@ -88,28 +92,4 @@ fn evalute_command(name: &str, args: Vec<Expression>) -> Result<Command, Executo
 	let mut command = Command::new(name);
 	command.args(args);
 	Ok(command)
-}
-
-fn evaluate_if(mut args: Vec<Expression>) -> Result<CommandOrString, ExecutorError> {
-	if args.len() != 3 {
-		return Err(ExecutorError::from_type(
-			ExecutorErrorType::IncorrectNumberOfArgsToBuiltinFunction,
-		)
-		.with("if".to_string()));
-	}
-	let predicate = args.remove(0);
-	let true_expression = args.remove(0);
-	let false_expression = args.remove(0);
-	match evaluate_expression_to_string(predicate)?.as_str() {
-		"true" => evaluate_expression(true_expression),
-		"false" => evaluate_expression(false_expression),
-		arg => {
-			return Err(
-				ExecutorError::from_type(ExecutorErrorType::BuiltinExecutionError(format!(
-					"First argument must be true or false but was '{arg}'"
-				)))
-				.with("if".to_string()),
-			)
-		}
-	}
 }

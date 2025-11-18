@@ -1,0 +1,29 @@
+use crate::{
+	errors::{ExecutorError, ExecutorErrorType},
+	executor::{evaluate_expression, evaluate_expression_to_string, CommandOrString},
+	parser::Expression,
+};
+
+pub fn evaluate_if(mut args: Vec<Expression>) -> Result<CommandOrString, ExecutorError> {
+	if args.len() != 3 {
+		return Err(ExecutorError::from_type(
+			ExecutorErrorType::IncorrectNumberOfArgsToBuiltinFunction,
+		)
+		.with("if".to_string()));
+	}
+	let predicate = args.remove(0);
+	let true_expression = args.remove(0);
+	let false_expression = args.remove(0);
+	match evaluate_expression_to_string(predicate)?.as_str() {
+		"true" => evaluate_expression(true_expression),
+		"false" => evaluate_expression(false_expression),
+		arg => {
+			return Err(
+				ExecutorError::from_type(ExecutorErrorType::BuiltinExecutionError(format!(
+					"First argument must be true or false but was '{arg}'"
+				)))
+				.with("if".to_string()),
+			)
+		}
+	}
+}
