@@ -2,23 +2,20 @@ use std::process::{Command, Stdio};
 
 use crate::{
 	errors::{ExecutorError, ExecutorErrorType},
-	executor::{context::Context, evaluate_expression, CommandOrString},
+	executor::{context::Context, evaluate_expression, Value},
 	parser::Expression,
 };
 
-pub fn evaluate_pipe(
-	mut args: Vec<Expression>,
-	context: &Context,
-) -> Result<CommandOrString, ExecutorError> {
+pub fn evaluate_pipe(mut args: Vec<Expression>, context: &Context) -> Result<Value, ExecutorError> {
 	let mut prev = match evaluate_expression(args.remove(0), context)? {
-		CommandOrString::String(s) => {
+		Value::String(s) => {
 			// Probably not the best way of doing this, but it works for now.
 			let mut command = Command::new("echo");
 			command.arg(s);
 			command
 		}
-		CommandOrString::Command(command) => command,
-		CommandOrString::Cd(_) => {
+		Value::Command(command) => command,
+		Value::Cd(_) => {
 			return Err(ExecutorErrorType::BuiltinExecutionError(
 				"cd cannot be piped from.".to_string(),
 			)
@@ -28,20 +25,20 @@ pub fn evaluate_pipe(
 
 	for arg in args {
 		match evaluate_expression(arg, context)? {
-			CommandOrString::String(s) => {
+			Value::String(s) => {
 				return Err(ExecutorError::from_type(
 					ExecutorErrorType::BuiltinExecutionError(format!(
 						"Expected command but instead attempted to pipe into string '{s}'"
 					)),
 				))
 			}
-			CommandOrString::Command(mut command) => {
+			Value::Command(mut command) => {
 				prev.stdout(Stdio::piped());
 				let child = prev.spawn()?;
 				command.stdin(Stdio::from(child.stdout.unwrap()));
 				prev = command;
 			}
-			CommandOrString::Cd(_) => {
+			Value::Cd(_) => {
 				return Err(ExecutorErrorType::BuiltinExecutionError(
 					"cd cannot be piped from or into.".to_string(),
 				)
@@ -49,5 +46,5 @@ pub fn evaluate_pipe(
 			}
 		}
 	}
-	Ok(CommandOrString::Command(prev))
+	Ok(Value::Command(prev))
 }

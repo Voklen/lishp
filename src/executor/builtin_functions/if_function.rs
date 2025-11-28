@@ -1,15 +1,10 @@
 use crate::{
 	errors::{ExecutorError, ExecutorErrorType},
-	executor::{
-		context::Context, evaluate_expression, evaluate_expression_to_string, CommandOrString,
-	},
+	executor::{context::Context, evaluate_expression, evaluate_expression_to_string, Value},
 	parser::Expression,
 };
 
-pub fn evaluate_if(
-	mut args: Vec<Expression>,
-	context: &Context,
-) -> Result<CommandOrString, ExecutorError> {
+pub fn evaluate_if(mut args: Vec<Expression>, context: &Context) -> Result<Value, ExecutorError> {
 	if args.len() != 3 {
 		return Err(ExecutorError::from_type(
 			ExecutorErrorType::IncorrectNumberOfArgsToBuiltinFunction,
