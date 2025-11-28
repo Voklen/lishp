@@ -1,5 +1,3 @@
-use std::{path::PathBuf, str::FromStr};
-
 use crate::{
 	errors::{ExecutorError, ExecutorErrorType},
 	executor::{context::Context, evaluate_expression_to_string, Value},
@@ -20,13 +18,19 @@ pub fn evaluate_cd(
 			)
 		}
 	};
-	// Unwrap an infalliable error.
-	let pathbuf = PathBuf::from_str(&path).unwrap();
-	if !pathbuf.is_dir() {
+	let full_path = match context.working_dir.join(&path).canonicalize() {
+		Ok(res) => res,
+		Err(e) => {
+			return Err(
+				ExecutorErrorType::BuiltinExecutionError(e.to_string()).binary("cd".to_string())
+			)
+		}
+	};
+	if !full_path.is_dir() {
 		return Err(
 			ExecutorErrorType::BuiltinExecutionError(format!("{path}: Not a directory"))
 				.binary("cd".to_string()),
 		);
 	}
-	Ok(Value::Cd(pathbuf))
+	Ok(Value::Cd(full_path))
 }

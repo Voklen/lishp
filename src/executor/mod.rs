@@ -6,7 +6,10 @@ use std::{
 use crate::{
 	errors::{ExecutorError, ExecutorErrorType},
 	executor::{
-		builtin_functions::{cd::evaluate_cd, if_function::evaluate_if, pipe::evaluate_pipe},
+		builtin_functions::{
+			cd::evaluate_cd, get_env::get_env, if_function::evaluate_if, pipe::evaluate_pipe,
+			set_env::set_env,
+		},
 		context::Context,
 	},
 	parser::{Expression, Func},
@@ -40,15 +43,7 @@ fn execute_with_result(func: Func, context: &mut Context) -> Result<(), Executor
 			return Ok(());
 		}
 		Value::Cd(path) => {
-			context.working_dir = match context.working_dir.join(path).canonicalize() {
-				Ok(res) => res,
-				Err(e) => {
-					return Err(ExecutorErrorType::BuiltinExecutionError(format!(
-						"Error canonicalizing path: {e}"
-					))
-					.binary("cd".to_string()))
-				}
-			};
+			context.working_dir = path;
 			return Ok(());
 		}
 	};
@@ -109,6 +104,8 @@ fn evaluate_func(func: Box<Func>, context: &Context) -> Result<Value, ExecutorEr
 		"if" => evaluate_if(func.arguments, context)?,
 		"pipe" | "|" => evaluate_pipe(func.arguments, context)?,
 		"cd" => evaluate_cd(func.arguments, context)?,
+		"set-env" => set_env(func.arguments, context)?,
+		"get-env" => get_env(func.arguments, context)?,
 		command => Value::Command(evalute_command(command, func.arguments, context)?),
 	};
 	Ok(result_string)
