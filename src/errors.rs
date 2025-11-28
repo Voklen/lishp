@@ -76,6 +76,12 @@ impl Display for ExecutorError {
 	}
 }
 
+impl From<ExecutorErrorType> for ExecutorError {
+	fn from(value: ExecutorErrorType) -> Self {
+		ExecutorError::from_type(value)
+	}
+}
+
 impl From<io::Error> for ExecutorError {
 	fn from(value: io::Error) -> Self {
 		let error_type = ExecutorErrorType::CommandStart(value);
@@ -91,4 +97,15 @@ pub enum ExecutorErrorType {
 	CommandStart(io::Error),
 	IncorrectNumberOfArgsToBuiltinFunction,
 	BuiltinExecutionError(String),
+}
+
+impl ExecutorErrorType {
+	pub fn to_error(self) -> ExecutorError {
+		self.into()
+	}
+
+	pub fn binary(self, binary: String) -> ExecutorError {
+		let executor_error: ExecutorError = self.into();
+		executor_error.with(binary)
+	}
 }

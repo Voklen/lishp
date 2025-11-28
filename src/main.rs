@@ -5,17 +5,29 @@ use std::{
 };
 
 use reedline::{
-	default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultPrompt, Emacs, KeyCode,
-	KeyModifiers, MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
+	default_emacs_keybindings, ColumnarMenu, DefaultCompleter, Emacs, KeyCode, KeyModifiers,
+	MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
 };
 
-use lishp::{executor::execute, lexer::lex, parser::parse};
+use lishp::{
+	executor::{context::Context, execute},
+	lexer::lex,
+	parser::parse,
+	prompt::LishpPrompt,
+};
 
 fn main() {
 	let mut line_editor = get_line_editor();
-	let prompt = DefaultPrompt::default();
+	let mut context = match Context::new() {
+		Ok(res) => res,
+		Err(e) => {
+			eprintln!("Error creating context: {e}");
+			return;
+		}
+	};
 
 	loop {
+		let prompt = LishpPrompt::new(&context);
 		let line = match line_editor.read_line(&prompt) {
 			Ok(Signal::Success(line)) => line,
 			Ok(Signal::CtrlC) | Ok(Signal::CtrlD) => {
@@ -42,7 +54,7 @@ fn main() {
 				continue;
 			}
 		};
-		execute(parsed);
+		execute(parsed, &mut context);
 	}
 }
 
