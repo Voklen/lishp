@@ -26,7 +26,7 @@ pub enum Token {
 /// 	]
 /// );
 /// ```
-pub fn lex(line: String) -> Result<Vec<Token>, LexerError> {
+pub fn lex(line: &str) -> Result<Vec<Token>, LexerError> {
 	let mut chars = line.chars();
 
 	let mut tokens = vec![];

@@ -2,7 +2,7 @@ use std::{borrow::Cow, env};
 
 use reedline::{Prompt, PromptEditMode, PromptHistorySearchStatus, PromptViMode};
 
-use crate::executor::context::Context;
+use lishp::executor::context::Context;
 
 // Default prompt indicators
 pub static DEFAULT_PROMPT_INDICATOR: &str = "〉";
@@ -17,9 +17,6 @@ pub struct LishpPrompt<'a> {
 impl<'a> LishpPrompt<'a> {
 	pub fn new(context: &'a Context) -> Self {
 		LishpPrompt { context }
-	}
-	pub fn update_context(&mut self, context: &'a Context) {
-		self.context = context;
 	}
 }
 

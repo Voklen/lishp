@@ -4,8 +4,9 @@ use std::{
 	io::Error,
 };
 
+use nu_ansi_term::{Color, Style};
 use reedline::{
-	default_emacs_keybindings, ColumnarMenu, DefaultCompleter, Emacs, KeyCode, KeyModifiers,
+	default_emacs_keybindings, ColumnarMenu, DefaultHinter, Emacs, KeyCode, KeyModifiers,
 	MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu, Signal,
 };
 
@@ -13,8 +14,12 @@ use lishp::{
 	executor::{context::Context, execute},
 	lexer::lex,
 	parser::parse,
-	prompt::LishpPrompt,
 };
+
+use crate::{completer::LishpCompleter, prompt::LishpPrompt};
+
+mod completer;
+mod prompt;
 
 fn main() {
 	let mut line_editor = get_line_editor();
@@ -40,7 +45,7 @@ fn main() {
 			}
 		};
 
-		let tokens = match lex(line) {
+		let tokens = match lex(&line) {
 			Ok(res) => res,
 			Err(e) => {
 				eprintln!("{e}");
@@ -59,8 +64,8 @@ fn main() {
 }
 
 fn get_line_editor() -> Reedline {
-	let commands = executables_in_path();
-	let completer = Box::new(DefaultCompleter::new_with_wordlen(commands, 2));
+	let executables = executables_in_path();
+	let completer = Box::new(LishpCompleter::new(executables));
 	let completion_menu = Box::new(ColumnarMenu::default().with_name("completion_menu"));
 
 	let mut keybindings = default_emacs_keybindings();
@@ -79,6 +84,9 @@ fn get_line_editor() -> Reedline {
 		.with_completer(completer)
 		.with_menu(ReedlineMenu::EngineCompleter(completion_menu))
 		.with_edit_mode(edit_mode)
+		.with_hinter(Box::new(
+			DefaultHinter::default().with_style(Style::new().italic().fg(Color::LightGray)),
+		))
 }
 
 fn executables_in_path() -> Vec<String> {
