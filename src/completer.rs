@@ -1,4 +1,4 @@
-use std::fs;
+use std::{ffi::OsString, fs};
 
 use lishp::{
 	errors::LexerError,
@@ -9,16 +9,135 @@ use lishp::{
 use reedline::{Completer, Span, Suggestion};
 
 pub struct LishpCompleter {
+	context: Context,
 	commands: Vec<String>,
 }
 
 impl LishpCompleter {
-	pub fn new(mut executables: Vec<String>) -> Self {
+	pub fn new(context: Context, mut executables: Vec<String>) -> Self {
 		executables.extend(KEYWORDS.into_iter().map(String::from));
 		executables.sort_unstable();
 		Self {
+			context,
 			commands: executables,
 		}
+	}
+
+	fn complete_tokens(
+		&self,
+		tokens: Vec<Token>,
+		line: &str,
+		pos: usize,
+	) -> Vec<reedline::Suggestion> {
+		match tokens.last() {
+			Some(Token::FunctionStart) => {
+				let span = Span {
+					start: pos,
+					end: pos,
+				};
+				suggest_commands(&self.commands, span)
+			}
+			Some(Token::FunctionEnd) => {
+				if line.get(pos - 1..pos) == Some(" ") {
+					let span = Span {
+						start: pos,
+						end: pos,
+					};
+					return self.suggest_path(span);
+				} else {
+					// If there is no space after the end of the function, add one.
+					let span = Span {
+						start: pos,
+						end: pos,
+					};
+					return self
+						.suggest_path(span)
+						.into_iter()
+						.map(|mut s| {
+							s.value = format!(" {}", s.value);
+							s
+						})
+						.collect();
+				}
+			}
+			Some(Token::String(string)) => {
+				if line.get(pos - 1..pos) == Some(" ") {
+					// If the last character is a space, then this is an argument so return paths.
+					let span = Span {
+						start: pos,
+						end: pos,
+					};
+					return self.suggest_path(span);
+				}
+				let span = Span {
+					start: pos - string.len(),
+					end: pos,
+				};
+				// Check second-to-last character
+				if tokens.len() < 2 {
+					// Just return a completion of there's no character before the last one.
+					complete_command(string, &self.commands, span)
+				} else {
+					match tokens.get(tokens.len() - 2) {
+						Some(Token::FunctionStart) => {
+							complete_command(string, &self.commands, span)
+						}
+						Some(Token::FunctionEnd) | Some(Token::String(_)) => {
+							let span = Span {
+								start: pos - string.len(),
+								end: pos,
+							};
+							self.complete_path(string, span)
+						}
+						None => {
+							//NOTE For some reason if this panic is not in a block, rustfmt cannot format the match statment?
+							panic!("Error accessing second to last token: This shouldn't be possible as we've just checked tokens has at least 2 items.")
+						}
+					}
+				}
+			}
+			None => {
+				let span = Span { start: 0, end: pos };
+				suggest_commands(&self.commands, span)
+			}
+		}
+	}
+
+	fn suggest_path(&self, span: Span) -> Vec<Suggestion> {
+		self.complete_path("", span)
+	}
+
+	fn complete_path(&self, start_of_path: &str, span: Span) -> Vec<Suggestion> {
+		let to_suggestion = |path: &str| Suggestion {
+			value: path.to_string(),
+			description: None,
+			style: None,
+			extra: None,
+			span,
+			append_whitespace: false,
+		};
+		let entries = match fs::read_dir(&self.context.working_dir) {
+			Ok(res) => res,
+			// Silently ignore not being able to read directory.
+			Err(_) => return vec![],
+		};
+		let files: Vec<String> = entries
+			.flatten()
+			.map(|entry| -> Result<String, OsString> {
+				let name = entry.file_name().into_string()?;
+				Ok(if entry.path().is_dir() {
+					format!("{name}/")
+				} else {
+					format!("{name} ")
+				})
+			})
+			.flatten()
+			.collect();
+		files
+			.iter()
+			.filter(|command| command.starts_with(start_of_path))
+			.map(|command| to_suggestion(command))
+			.collect()
 	}
 }
 
@@ -26,46 +145,7 @@ impl Completer for LishpCompleter {
 	fn complete(&mut self, line: &str, pos: usize) -> Vec<reedline::Suggestion> {
 		let (first_part, _second_part) = line.split_at(pos);
 		match lex(first_part) {
-			Ok(tokens) => match tokens.last() {
-				Some(Token::FunctionStart) => {
-					let span = Span {
-						start: pos,
-						end: pos,
-					};
-					suggest_commands(&self.commands, span)
-				}
-				Some(Token::FunctionEnd) => {
-					if first_part.get(pos - 1..pos) == Some(" ") {
-						return vec![]; // TODO path completions
-					} else {
-						return vec![]; // TODO path completion with space
-					}
-				}
-				Some(Token::String(string)) => {
-					let span = Span {
-						start: pos - string.len(),
-						end: pos,
-					};
-					if first_part.get(pos - 1..pos) == Some(" ") {
-						return vec![]; // TODO path completions
-					}
-					// Check second-to-last character
-					if tokens.len() < 2 {
-						// Just return a completion of there's no character before the last one.
-						complete_command(string, &self.commands, span)
-					} else {
-						match tokens.get(tokens.len() - 2) {
-							Some(Token::FunctionStart) => complete_command(string, &self.commands, span),
-							Some(Token::FunctionEnd) | Some(Token::String(_)) => vec![], // TODO path completions
-							None => panic!("Error accessing second to last token: This shouldn't be possible as we've just checked tokens has at least 2 items."),
-						}
-					}
-				}
-				None => {
-					let span = Span { start: 0, end: pos };
-					suggest_commands(&self.commands, span)
-				}
-			},
+			Ok(tokens) => self.complete_tokens(tokens, first_part, pos),
 			Err(LexerError::TrailingBackslash) => vec![
 				("\\\\".to_string(), "Backslash character".to_string()),
 				("\\ ".to_string(), "Space character".to_string()),
@@ -117,41 +197,6 @@ fn complete_command(start_of_command: &str, commands: &Vec<String>, span: Span) 
 	commands
 		.iter()
 		.filter(|command| command.starts_with(start_of_command))
-		.map(|command| to_suggestion(command))
-		.collect()
-}
-
-// TODO For these next two function to be usable, we need to be able to access
-// Context in the complete method.
-
-#[allow(dead_code)]
-fn suggest_path(span: Span, context: &Context) -> Vec<Suggestion> {
-	complete_path("", span, context)
-}
-
-fn complete_path(start_of_path: &str, span: Span, context: &Context) -> Vec<Suggestion> {
-	let to_suggestion = |path: &str| Suggestion {
-		value: path.to_string(),
-		description: None,
-		style: None,
-		extra: None,
-		span,
-		append_whitespace: true,
-	};
-	let entries = match fs::read_dir(&context.working_dir) {
-		Ok(res) => res,
-		// Silently ignore not being able to read directory.
-		Err(_) => return vec![],
-	};
-	let files: Vec<String> = entries
-		.flatten()
-		.map(|entry| entry.path().into_os_string())
-		.map(|os_string| os_string.into_string())
-		.flatten()
-		.collect();
-	files
-		.iter()
-		.filter(|command| command.starts_with(start_of_path))
 		.map(|command| to_suggestion(command))
 		.collect()
 }

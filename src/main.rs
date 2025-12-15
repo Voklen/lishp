@@ -22,7 +22,6 @@ mod completer;
 mod prompt;
 
 fn main() {
-	let mut line_editor = get_line_editor();
 	let mut context = match Context::new() {
 		Ok(res) => res,
 		Err(e) => {
@@ -33,6 +32,12 @@ fn main() {
 
 	loop {
 		let prompt = LishpPrompt::new(&context);
+		let executables = executables_in_path();
+		//TODO Fork reedline and remove the clone.
+		let completer = Box::new(LishpCompleter::new(context.clone(), executables));
+		// Creating the line editor on each iteration, just like nushell
+		let mut line_editor = get_line_editor().with_completer(completer);
+
 		let line = match line_editor.read_line(&prompt) {
 			Ok(Signal::Success(line)) => line,
 			Ok(Signal::CtrlC) | Ok(Signal::CtrlD) => {
@@ -64,8 +69,6 @@ fn main() {
 }
 
 fn get_line_editor() -> Reedline {
-	let executables = executables_in_path();
-	let completer = Box::new(LishpCompleter::new(executables));
 	let completion_menu = Box::new(ColumnarMenu::default().with_name("completion_menu"));
 
 	let mut keybindings = default_emacs_keybindings();
@@ -81,7 +84,6 @@ fn get_line_editor() -> Reedline {
 	let edit_mode = Box::new(Emacs::new(keybindings));
 
 	Reedline::create()
-		.with_completer(completer)
 		.with_menu(ReedlineMenu::EngineCompleter(completion_menu))
 		.with_edit_mode(edit_mode)
 		.with_hinter(Box::new(

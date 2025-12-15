@@ -1,5 +1,6 @@
 use std::{env, io, path::PathBuf};
 
+#[derive(Clone)]
 pub struct Context {
 	pub working_dir: PathBuf,
 }
