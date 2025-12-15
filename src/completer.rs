@@ -1,4 +1,4 @@
-use std::{ffi::OsString, fs};
+use std::{ffi::OsString, fs, path::PathBuf};
 
 use lishp::{
 	errors::LexerError,
@@ -38,7 +38,7 @@ impl LishpCompleter {
 				suggest_commands(&self.commands, span)
 			}
 			Some(Token::FunctionEnd) => {
-				if line.get(pos - 1..pos) == Some(" ") {
+				if line.chars().nth(pos - 1) == Some(' ') {
 					let span = Span {
 						start: pos,
 						end: pos,
@@ -61,7 +61,7 @@ impl LishpCompleter {
 				}
 			}
 			Some(Token::String(string)) => {
-				if line.get(pos - 1..pos) == Some(" ") {
+				if line.chars().nth(pos - 1) == Some(' ') {
 					// If the last character is a space, then this is an argument so return paths.
 					let span = Span {
 						start: pos,
@@ -107,16 +107,32 @@ impl LishpCompleter {
 		self.complete_path("", span)
 	}
 
-	fn complete_path(&self, start_of_path: &str, span: Span) -> Vec<Suggestion> {
-		let to_suggestion = |path: &str| Suggestion {
-			value: path.to_string(),
-			description: None,
-			style: None,
-			extra: None,
-			span,
-			append_whitespace: false,
-		};
-		let entries = match fs::read_dir(&self.context.working_dir) {
+	fn complete_path(&self, incomplete_path: &str, span: Span) -> Vec<Suggestion> {
+		let mut working_dir = self.context.working_dir.clone();
+		// If the start of path is src/main.r then we want to search for files in
+		// src/ and then match all the files that start with main.r
+		let mut incomplete_dir = String::new();
+		if !incomplete_path.is_empty() {
+			let mut incomplete_dir_pathbuf = PathBuf::from(incomplete_path);
+			if incomplete_path.chars().last() != Some('/') {
+				// If the last char isn't a `/` then we want to pop whatever is after the
+				// last `/` off so we just have the directory.
+				incomplete_dir_pathbuf.pop();
+			}
+			working_dir.push(&incomplete_dir_pathbuf);
+			incomplete_dir = match incomplete_dir_pathbuf.into_os_string().into_string() {
+				Ok(res) => {
+					if res.is_empty() || res.ends_with('/') {
+						res
+					} else {
+						format!("{res}/")
+					}
+				}
+				Err(_) => return vec![],
+			};
+		}
+
+		let entries = match fs::read_dir(working_dir) {
 			Ok(res) => res,
 			// Silently ignore not being able to read directory.
 			Err(_) => return vec![],
@@ -126,17 +142,24 @@ impl LishpCompleter {
 			.map(|entry| -> Result<String, OsString> {
 				let name = entry.file_name().into_string()?;
 				Ok(if entry.path().is_dir() {
-					format!("{name}/")
+					format!("{incomplete_dir}{name}/")
 				} else {
-					format!("{name} ")
+					format!("{incomplete_dir}{name} ")
 				})
 			})
 			.flatten()
 			.collect();
 		files
 			.iter()
-			.filter(|command| command.starts_with(start_of_path))
-			.map(|command| to_suggestion(command))
+			.filter(|path| path.starts_with(&incomplete_path))
+			.map(|path| Suggestion {
+				value: path.to_string(),
+				description: None,
+				style: None,
+				extra: None,
+				span,
+				append_whitespace: false,
+			})
 			.collect()
 	}
 }
