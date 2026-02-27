@@ -159,6 +159,7 @@ impl LishpCompleter {
 				extra: None,
 				span,
 				append_whitespace: false,
+				match_indices: None,
 			})
 			.collect()
 	}
@@ -198,6 +199,7 @@ fn to_backslash_suggestion(value_description_pair: (String, String), pos: usize)
 		extra: None,
 		span,
 		append_whitespace: false,
+		match_indices: None,
 	}
 }
 
@@ -215,6 +217,7 @@ fn complete_command(start_of_command: &str, commands: &Vec<String>, span: Span) 
 			extra: None,
 			span,
 			append_whitespace: true,
+			match_indices: None,
 		}
 	};
 	commands
