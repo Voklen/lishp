@@ -4,6 +4,7 @@ use std::vec::IntoIter;
 #[derive(Debug, PartialEq)]
 pub enum Expression {
 	String(String),
+	Variable(String),
 	Function(Box<Func>),
 }
 
@@ -47,6 +48,7 @@ fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
 		Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
 		Token::FunctionEnd => return Ok(Func::empty()),
 		Token::String(string) => Expression::String(string),
+		Token::Variable(var) => Expression::Variable(var),
 	};
 	let mut args = vec![];
 
@@ -59,6 +61,7 @@ fn parse_function(tokens: &mut IntoIter<Token>) -> Result<Func, ParserError> {
 			Token::FunctionStart => Expression::Function(Box::new(parse_function(tokens)?)),
 			Token::FunctionEnd => break,
 			Token::String(string) => Expression::String(string),
+			Token::Variable(var) => Expression::Variable(var),
 		};
 		args.push(arg);
 	}

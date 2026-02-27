@@ -15,12 +15,8 @@ pub fn evaluate_pipe(mut args: Vec<Expression>, context: &Context) -> Result<Val
 			command
 		}
 		Value::Command(command) => command,
-		Value::Cd(_) => {
-			return Err(ExecutorErrorType::BuiltinExecutionError(
-				"cd cannot be piped from.".to_string(),
-			)
-			.binary("pipe".to_string()))
-		}
+		Value::Cd(_) => return Err(cannot_be_used_error("cd")),
+		Value::Let(_, _) => return Err(cannot_be_used_error("let")),
 	};
 
 	for arg in args {
@@ -41,13 +37,14 @@ Hint: If you want to pipe into the \"{s}\" command, put it in paretheses like th
 				command.stdin(Stdio::from(child.stdout.unwrap()));
 				prev = command;
 			}
-			Value::Cd(_) => {
-				return Err(ExecutorErrorType::BuiltinExecutionError(
-					"cd cannot be piped from or into.".to_string(),
-				)
-				.binary("pipe".to_string()))
-			}
+			Value::Cd(_) => return Err(cannot_be_used_error("cd")),
+			Value::Let(_, _) => return Err(cannot_be_used_error("let")),
 		}
 	}
 	Ok(Value::Command(prev))
+}
+
+fn cannot_be_used_error(function: &str) -> ExecutorError {
+	let message = format!("{function} cannot be used in a pipe.");
+	ExecutorErrorType::BuiltinExecutionError(message).binary("pipe".to_string())
 }

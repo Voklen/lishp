@@ -4,8 +4,9 @@ use std::{fmt::Display, io};
 pub enum LexerError {
 	TrailingBackslash,
 	UnclosedQuote,
-	QuoteWithinArgument,
-	OpenParethesisWithinArgument,
+	OpenParethesisInArg,
+	InvalidCharInArg(char),
+	InvalidCharInVar(char),
 }
 
 impl Display for LexerError {
@@ -13,8 +14,9 @@ impl Display for LexerError {
 		let message = match self {
     LexerError::TrailingBackslash => "Single backslash at the end of the command.",
     LexerError::UnclosedQuote => "Start of quoted string without end quote.",
-    LexerError::QuoteWithinArgument => "Quote found within argument. Either replace it with \\\"  or add a space before it if this is meant as a seperate argument.",
-    LexerError::OpenParethesisWithinArgument => "Open parenthesis '(' found within argument. Either replace it with \\(  or add a space before it if this is meant to be the start of a subcommand.",
+    LexerError::OpenParethesisInArg => "Invalid character '(' found in argument. Either replace it with \\(  or add a space before it if this is meant to be the start of a subcommand.",
+    LexerError::InvalidCharInArg(char) => &format!("Invalid character '{char}' found in argument. Either replace it with \\{char} or add a space before it if this is meant as a seperate argument."),
+    LexerError::InvalidCharInVar(char) => &format!("Invalid character '{char}' found in variable name."),
 };
 		write!(f, "Lexer Error: {message}")
 	}
@@ -68,6 +70,7 @@ impl Display for ExecutorError {
 				"Incorrect number of arguments given.".to_string()
 			}
 			ExecutorErrorType::BuiltinExecutionError(reason) => reason.to_string(),
+			ExecutorErrorType::VariableNotFound(name) => format!("Variable '{name}' not found."),
 		};
 		match &self.binary_name {
 			Some(name) => write!(f, "{name}: {message}"),
@@ -96,6 +99,7 @@ impl From<io::Error> for ExecutorError {
 pub enum ExecutorErrorType {
 	CommandStart(io::Error),
 	IncorrectNumberOfArgsToBuiltinFunction,
+	VariableNotFound(String),
 	BuiltinExecutionError(String),
 }
 

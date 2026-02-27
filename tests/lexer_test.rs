@@ -31,13 +31,13 @@ fn single_command_with_args() {
 #[test]
 fn inserted_quote_error() {
 	let lexed = lex("ls direc\"tory");
-	assert_eq!(lexed, Err(LexerError::QuoteWithinArgument));
+	assert_eq!(lexed, Err(LexerError::InvalidCharInArg('"')));
 }
 
 #[test]
 fn inserted_open_parenthesis_error() {
 	let lexed = lex("ls direc(tory");
-	assert_eq!(lexed, Err(LexerError::OpenParethesisWithinArgument));
+	assert_eq!(lexed, Err(LexerError::OpenParethesisInArg));
 }
 
 #[test]

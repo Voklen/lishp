@@ -35,7 +35,7 @@ impl LishpCompleter {
 					start: pos,
 					end: pos,
 				};
-				suggest_commands(&self.commands, span)
+				generate_suggestions(&self.commands, span)
 			}
 			Some(Token::FunctionEnd) => {
 				if line.chars().nth(pos - 1) == Some(' ') {
@@ -73,32 +73,33 @@ impl LishpCompleter {
 					start: pos - string.len(),
 					end: pos,
 				};
-				// Check second-to-last character
-				if tokens.len() < 2 {
-					// Just return a completion of there's no character before the last one.
-					complete_command(string, &self.commands, span)
-				} else {
-					match tokens.get(tokens.len() - 2) {
-						Some(Token::FunctionStart) => {
-							complete_command(string, &self.commands, span)
-						}
-						Some(Token::FunctionEnd) | Some(Token::String(_)) => {
-							let span = Span {
-								start: pos - string.len(),
-								end: pos,
-							};
-							self.complete_path(string, span)
-						}
-						None => {
-							//NOTE For some reason if this panic is not in a block, rustfmt cannot format the match statment?
-							panic!("Error accessing second to last token: This shouldn't be possible as we've just checked tokens has at least 2 items.")
-						}
+				// Check preceding token
+				match tokens.get(tokens.len() - 2) {
+					Some(Token::FunctionStart) | None => {
+						// Complete this string as a command
+						generate_suggestions_from(string, &self.commands, span)
+					}
+					Some(Token::FunctionEnd | Token::String(_) | Token::Variable(_)) => {
+						// Complete this string as a path
+						let span = Span {
+							start: pos - string.len(),
+							end: pos,
+						};
+						self.complete_path(string, span)
 					}
 				}
 			}
+			Some(Token::Variable(var)) => {
+				let span = Span {
+					start: pos - var.len(),
+					end: pos,
+				};
+				let options = self.context.vars.keys().cloned().collect();
+				generate_suggestions_from(var, &options, span)
+			}
 			None => {
 				let span = Span { start: 0, end: pos };
-				suggest_commands(&self.commands, span)
+				generate_suggestions(&self.commands, span)
 			}
 		}
 	}
@@ -203,14 +204,14 @@ fn to_backslash_suggestion(value_description_pair: (String, String), pos: usize)
 	}
 }
 
-fn suggest_commands(commands: &Vec<String>, span: Span) -> Vec<Suggestion> {
-	complete_command("", commands, span)
+fn generate_suggestions(options: &Vec<String>, span: Span) -> Vec<Suggestion> {
+	generate_suggestions_from("", options, span)
 }
 
-fn complete_command(start_of_command: &str, commands: &Vec<String>, span: Span) -> Vec<Suggestion> {
-	let to_suggestion = |command: &str| {
+fn generate_suggestions_from(start: &str, options: &Vec<String>, span: Span) -> Vec<Suggestion> {
+	let to_suggestion = |option: &str| {
 		Suggestion {
-			value: command.to_string(),
+			value: option.to_string(),
 			// TODO Add descriptions for commands.
 			description: None,
 			style: None,
@@ -220,9 +221,9 @@ fn complete_command(start_of_command: &str, commands: &Vec<String>, span: Span) 
 			match_indices: None,
 		}
 	};
-	commands
+	options
 		.iter()
-		.filter(|command| command.starts_with(start_of_command))
-		.map(|command| to_suggestion(command))
+		.filter(|option| option.starts_with(start))
+		.map(|option| to_suggestion(option))
 		.collect()
 }

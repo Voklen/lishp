@@ -7,6 +7,7 @@ pub enum Token {
 	FunctionStart,
 	FunctionEnd,
 	String(String),
+	Variable(String),
 }
 
 /// Lex a string of lishp into a vector of tokens.
@@ -43,6 +44,10 @@ pub fn lex(line: &str) -> Result<Vec<Token>, LexerError> {
 				let quoted_string = handle_quoted_string(&mut chars)?;
 				tokens.push(Token::String(quoted_string));
 			}
+			'$' => {
+				let mut arg = handle_var(&mut chars)?;
+				tokens.append(&mut arg);
+			}
 			' ' => continue,
 			'\\' => {
 				let next_char = match chars.next() {
@@ -70,9 +75,10 @@ fn handle_argument(chars: &mut Chars<'_>, char: char) -> Result<Vec<Token>, Lexe
 			None => break,
 		};
 		match next_char {
-			'(' => return Err(LexerError::OpenParethesisWithinArgument),
+			'(' => return Err(LexerError::OpenParethesisInArg),
 			')' => return Ok(vec![Token::String(arg), Token::FunctionEnd]),
-			'"' => return Err(LexerError::QuoteWithinArgument),
+			'"' => return Err(LexerError::InvalidCharInArg('"')),
+			'$' => return Err(LexerError::InvalidCharInArg('$')),
 			'\\' => {
 				let next_char = match chars.next() {
 					Some(res) => res,
@@ -85,6 +91,28 @@ fn handle_argument(chars: &mut Chars<'_>, char: char) -> Result<Vec<Token>, Lexe
 		};
 	}
 	Ok(vec![Token::String(arg)])
+}
+
+/// Handles a variable
+fn handle_var(chars: &mut Chars<'_>) -> Result<Vec<Token>, LexerError> {
+	let mut var = "".to_string();
+	loop {
+		let next_char = match chars.next() {
+			Some(res) => res,
+			// Just exit normally and let the outer function exit cleanly.
+			None => break,
+		};
+		match next_char {
+			'(' => return Err(LexerError::InvalidCharInVar('(')),
+			')' => return Ok(vec![Token::Variable(var), Token::FunctionEnd]),
+			'"' => return Err(LexerError::InvalidCharInVar('"')),
+			'$' => return Err(LexerError::InvalidCharInVar('$')),
+			'\\' => return Err(LexerError::InvalidCharInVar('\\')),
+			' ' => break,
+			c => var.push(c),
+		};
+	}
+	Ok(vec![Token::Variable(var)])
 }
 
 /// Handles a string that starts with a quote.

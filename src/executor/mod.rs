@@ -7,8 +7,8 @@ use crate::{
 	errors::{ExecutorError, ExecutorErrorType},
 	executor::{
 		builtin_functions::{
-			cd::evaluate_cd, get_env::get_env, if_function::evaluate_if, pipe::evaluate_pipe,
-			set_env::set_env,
+			cd::evaluate_cd, get_env::get_env, if_function::evaluate_if,
+			let_function::let_function, pipe::evaluate_pipe, set_env::set_env,
 		},
 		context::Context,
 	},
@@ -22,14 +22,13 @@ enum Value {
 	Command(process::Command),
 	String(String),
 	Cd(PathBuf),
+	Let(String, String),
 }
 
 pub fn execute(func: Func, context: &mut Context) {
 	match execute_with_result(func, context) {
 		Ok(()) => {}
-		Err(e) => {
-			eprintln!("{e}");
-		}
+		Err(e) => eprintln!("{e}"),
 	}
 }
 
@@ -44,6 +43,10 @@ fn execute_with_result(func: Func, context: &mut Context) -> Result<(), Executor
 		}
 		Value::Cd(path) => {
 			context.working_dir = path;
+			return Ok(());
+		}
+		Value::Let(key, value) => {
+			context.vars.insert(key, value);
 			return Ok(());
 		}
 	};
@@ -64,7 +67,7 @@ fn evaluate_expression_to_string(
 	expr: Expression,
 	context: &Context,
 ) -> Result<String, ExecutorError> {
-	let string = match evaluate_expression(expr, context)? {
+	match evaluate_expression(expr, context)? {
 		Value::Command(mut command) => {
 			let child = match command.output() {
 				Ok(child) => child,
@@ -73,26 +76,26 @@ fn evaluate_expression_to_string(
 					return Err(ExecutorError::from(e).with(binary_name));
 				}
 			};
-			String::from_utf8_lossy(&child.stdout).trim().into()
+			Ok(String::from_utf8_lossy(&child.stdout).trim().into())
 		}
-		Value::String(string) => string,
-		Value::Cd(_) => {
-			return Err(
-				ExecutorError::from_type(ExecutorErrorType::BuiltinExecutionError(
-					"Cannot use cd as a value. cd can only be used as the outermost function."
-						.to_string(),
-				))
-				.with("cd".to_string()),
-			);
-		}
-	};
-	Ok(string)
+		Value::String(string) => Ok(string),
+		Value::Cd(_) => Err(only_outermost_error("cd")),
+		Value::Let(_, _) => Err(only_outermost_error("let")),
+	}
+}
+
+fn only_outermost_error(function: &str) -> ExecutorError {
+	ExecutorError::from_type(ExecutorErrorType::BuiltinExecutionError(format!(
+		"Cannot use {function} as a value. {function} can only be used as the outermost function."
+	)))
+	.with(function.to_string())
 }
 
 fn evaluate_expression(expr: Expression, context: &Context) -> Result<Value, ExecutorError> {
 	let string = match expr {
 		Expression::String(str) => Value::String(str),
 		Expression::Function(func) => evaluate_func(func, context)?,
+		Expression::Variable(var) => get_var(var, context)?,
 	};
 	Ok(string)
 }
@@ -106,6 +109,7 @@ fn evaluate_func(func: Box<Func>, context: &Context) -> Result<Value, ExecutorEr
 		"cd" => evaluate_cd(func.arguments, context)?,
 		"set-env" => set_env(func.arguments, context)?,
 		"get-env" => get_env(func.arguments, context)?,
+		"let" => let_function(func.arguments, context)?,
 		command => Value::Command(evalute_command(command, func.arguments, context)?),
 	};
 	Ok(result_string)
@@ -127,4 +131,14 @@ fn evaluate_args(func: Vec<Expression>, context: &Context) -> Result<Vec<String>
 	func.into_iter()
 		.map(|e| evaluate_expression_to_string(e, context))
 		.collect()
+}
+
+fn get_var(var: String, context: &Context) -> Result<Value, ExecutorError> {
+	match context.vars.get(&var) {
+		//TODO Maybe don't copy here?
+		Some(value) => Ok(Value::String(value.to_string())),
+		None => Err(ExecutorError::from_type(
+			ExecutorErrorType::VariableNotFound(var),
+		)),
+	}
 }
