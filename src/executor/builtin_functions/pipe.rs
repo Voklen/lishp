@@ -28,7 +28,10 @@ pub fn evaluate_pipe(mut args: Vec<Expression>, context: &Context) -> Result<Val
 			Value::String(s) => {
 				return Err(ExecutorError::from_type(
 					ExecutorErrorType::BuiltinExecutionError(format!(
-						"Expected command but instead attempted to pipe into string '{s}'"
+						"
+Expected command but instead attempted to pipe into string '{s}'
+Hint: If you want to pipe into the \"{s}\" command, put it in paretheses like this: ({s})
+						"
 					)),
 				))
 			}
