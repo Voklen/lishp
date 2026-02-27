@@ -30,14 +30,14 @@ fn main() {
 		}
 	};
 
+	let executables = executables_in_path();
+	let mut line_editor = get_line_editor();
+
 	loop {
 		let prompt = LishpPrompt::new(&context);
-		let executables = executables_in_path();
-		//TODO Fork reedline and remove the clone.
-		let completer = Box::new(LishpCompleter::new(context.clone(), executables));
-		// Creating the line editor on each iteration, just like nushell
-		let mut line_editor = get_line_editor().with_completer(completer);
-
+		//TODO Fork reedline and remove the clones.
+		let completer = Box::new(LishpCompleter::new(context.clone(), executables.clone()));
+		line_editor = line_editor.with_completer(completer);
 		let line = match line_editor.read_line(&prompt) {
 			Ok(Signal::Success(line)) => line,
 			Ok(Signal::CtrlC) | Ok(Signal::CtrlD) => {
