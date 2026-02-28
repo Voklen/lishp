@@ -13,7 +13,7 @@ if false (ls) (echo $default)
 ```
 
 ## Docs
-[Examples](docs/example_commands.md)
+- [Examples](docs/example_commands.md)
 
 ## Inspiration
 
@@ -30,7 +30,7 @@ The other option is to start with the bash syntax and then build a language off 
 command arg1 arg2 arg3
 ```
 But you may notice, this is very similar to another family of languages: Lisps! If you imagine there are parentheses around the command:
-```common-lisp
+```lisp
 (command arg1 arg2 arg3)
 ```
 
