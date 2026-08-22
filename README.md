@@ -7,9 +7,9 @@ A shell that neatly expands upon the basic form of a regular shell using a lisp-
 ```
 cd src/
 ls
-let default file1
-if true (ls) (echo $default)
-if false (ls) (echo $default)
+let some_var file1
+if true (ls) (echo $some_var)
+if false (ls) (echo $some_var)
 ```
 
 ## Docs
